@@ -1,0 +1,32 @@
+{
+  "name": "@trongnamvn90/mcp-example-server",
+  "version": "0.1.0",
+  "description": "Example MCP server with basic tools for demonstration",
+  "license": "MIT",
+  "author": "trongnamvn90",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "mcp-example-server": "dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.24.0",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
