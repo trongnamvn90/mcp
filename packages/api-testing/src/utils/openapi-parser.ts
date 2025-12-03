@@ -247,10 +247,12 @@ export function searchEndpoints(
         matchedFields.push('parameters');
       }
 
-      // Boost score for matching multiple query terms
-      for (const term of queryTerms) {
-        if (endpoint.path.toLowerCase().includes(term)) score += 2;
-        if (endpoint.summary?.toLowerCase().includes(term)) score += 1;
+      // Boost score for matching multiple query terms (only when query has multiple terms)
+      if (queryTerms.length > 1) {
+        for (const term of queryTerms) {
+          if (endpoint.path.toLowerCase().includes(term)) score += 2;
+          if (endpoint.summary?.toLowerCase().includes(term)) score += 1;
+        }
       }
 
       if (score > 0) {
@@ -284,26 +286,35 @@ export function getEndpointInfo(
 
 export function resolveSchema(
   apiDoc: ApiDoc,
-  schema: ApiSchema
+  schema: ApiSchema,
+  visitedRefs: Set<string> = new Set()
 ): ApiSchema {
   if (schema.$ref) {
+    // Detect circular reference
+    if (visitedRefs.has(schema.$ref)) {
+      return { ...schema, _circular: true };
+    }
+
     const refPath = schema.$ref.replace('#/components/schemas/', '').replace('#/definitions/', '');
     const resolved = apiDoc.schemas?.[refPath];
     if (resolved) {
-      return resolveSchema(apiDoc, resolved);
+      // Track this ref as visited
+      const newVisited = new Set(visitedRefs);
+      newVisited.add(schema.$ref);
+      return resolveSchema(apiDoc, resolved, newVisited);
     }
   }
 
   if (schema.properties) {
     const resolvedProps: Record<string, ApiSchema> = {};
     for (const [key, prop] of Object.entries(schema.properties)) {
-      resolvedProps[key] = resolveSchema(apiDoc, prop);
+      resolvedProps[key] = resolveSchema(apiDoc, prop, visitedRefs);
     }
     return { ...schema, properties: resolvedProps };
   }
 
   if (schema.items) {
-    return { ...schema, items: resolveSchema(apiDoc, schema.items) };
+    return { ...schema, items: resolveSchema(apiDoc, schema.items, visitedRefs) };
   }
 
   return schema;

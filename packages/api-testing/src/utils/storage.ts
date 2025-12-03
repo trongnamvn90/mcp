@@ -31,10 +31,20 @@ export class Storage {
       try {
         const content = await readFile(this.storagePath, 'utf-8');
         this.data = JSON.parse(content);
-      } catch {
+      } catch (error) {
+        // Log error for debugging - don't silently fail
+        console.error(
+          `[Storage] Failed to load data from ${this.storagePath}:`,
+          error instanceof Error ? error.message : error
+        );
+        console.error('[Storage] Starting with empty data');
         this.data = { apiDocs: [], credentials: [] };
       }
     }
+  }
+
+  getStoragePath(): string {
+    return this.storagePath;
   }
 
   private async save(): Promise<void> {
@@ -273,11 +283,20 @@ export class Storage {
 
 // Singleton instance
 let storageInstance: Storage | null = null;
+let initializedStorageDir: string | undefined = undefined;
 
 export async function getStorage(storageDir?: string): Promise<Storage> {
   if (!storageInstance) {
+    initializedStorageDir = storageDir;
     storageInstance = new Storage(storageDir);
     await storageInstance.init();
+  } else if (storageDir !== undefined && storageDir !== initializedStorageDir) {
+    // Warn if trying to use different storage dir after initialization
+    console.warn(
+      `[Storage] Warning: Storage already initialized with path '${storageInstance.getStoragePath()}'. ` +
+      `Ignoring requested storageDir '${storageDir}'. ` +
+      `Storage is a singleton - restart the server to use a different path.`
+    );
   }
   return storageInstance;
 }

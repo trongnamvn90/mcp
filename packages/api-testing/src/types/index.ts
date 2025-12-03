@@ -45,6 +45,7 @@ export interface ApiSchema {
   description?: string;
   example?: unknown;
   $ref?: string;
+  _circular?: boolean; // Marker for detected circular references
 }
 
 export interface ApiResponse {
