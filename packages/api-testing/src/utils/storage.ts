@@ -1,0 +1,222 @@
+/**
+ * Storage utility for persisting API docs and credentials
+ */
+
+import { readFile, writeFile, mkdir } from 'fs/promises';
+import { existsSync } from 'fs';
+import { join } from 'path';
+import { homedir } from 'os';
+import type { StorageData, ApiDoc, Credential } from '../types/index.js';
+
+const DEFAULT_STORAGE_DIR = join(homedir(), '.mcp-api-testing');
+const STORAGE_FILE = 'data.json';
+
+export class Storage {
+  private storagePath: string;
+  private data: StorageData;
+
+  constructor(storageDir?: string) {
+    const dir = storageDir || DEFAULT_STORAGE_DIR;
+    this.storagePath = join(dir, STORAGE_FILE);
+    this.data = { apiDocs: [], credentials: [] };
+  }
+
+  async init(): Promise<void> {
+    const dir = join(this.storagePath, '..');
+    if (!existsSync(dir)) {
+      await mkdir(dir, { recursive: true });
+    }
+
+    if (existsSync(this.storagePath)) {
+      try {
+        const content = await readFile(this.storagePath, 'utf-8');
+        this.data = JSON.parse(content);
+      } catch {
+        this.data = { apiDocs: [], credentials: [] };
+      }
+    }
+  }
+
+  private async save(): Promise<void> {
+    await writeFile(this.storagePath, JSON.stringify(this.data, null, 2));
+  }
+
+  // API Docs methods
+  async getApiDocs(): Promise<ApiDoc[]> {
+    return this.data.apiDocs;
+  }
+
+  async getApiDoc(id: string): Promise<ApiDoc | undefined> {
+    return this.data.apiDocs.find((doc) => doc.id === id);
+  }
+
+  async getApiDocByBaseUrl(baseUrl: string): Promise<ApiDoc | undefined> {
+    const normalizedUrl = this.normalizeUrl(baseUrl);
+    return this.data.apiDocs.find(
+      (doc) => this.normalizeUrl(doc.baseUrl) === normalizedUrl
+    );
+  }
+
+  async addApiDoc(apiDoc: ApiDoc): Promise<ApiDoc> {
+    const existing = await this.getApiDoc(apiDoc.id);
+    if (existing) {
+      throw new Error(`API doc with id '${apiDoc.id}' already exists`);
+    }
+    this.data.apiDocs.push(apiDoc);
+    await this.save();
+    return apiDoc;
+  }
+
+  async updateApiDoc(id: string, updates: Partial<ApiDoc>): Promise<ApiDoc> {
+    const index = this.data.apiDocs.findIndex((doc) => doc.id === id);
+    if (index === -1) {
+      throw new Error(`API doc with id '${id}' not found`);
+    }
+    this.data.apiDocs[index] = {
+      ...this.data.apiDocs[index],
+      ...updates,
+      updatedAt: new Date().toISOString(),
+    };
+    await this.save();
+    return this.data.apiDocs[index];
+  }
+
+  async removeApiDoc(id: string): Promise<boolean> {
+    const index = this.data.apiDocs.findIndex((doc) => doc.id === id);
+    if (index === -1) {
+      return false;
+    }
+    this.data.apiDocs.splice(index, 1);
+    await this.save();
+    return true;
+  }
+
+  // Credentials methods
+  async getCredentials(): Promise<Credential[]> {
+    // Return credentials without sensitive data
+    return this.data.credentials.map((cred) => ({
+      ...cred,
+      config: this.maskCredentialConfig(cred.config),
+    }));
+  }
+
+  async getCredential(id: string): Promise<Credential | undefined> {
+    return this.data.credentials.find((cred) => cred.id === id);
+  }
+
+  async addCredential(credential: Credential): Promise<Credential> {
+    const existing = await this.getCredential(credential.id);
+    if (existing) {
+      throw new Error(`Credential with id '${credential.id}' already exists`);
+    }
+    this.data.credentials.push(credential);
+    await this.save();
+    return {
+      ...credential,
+      config: this.maskCredentialConfig(credential.config),
+    };
+  }
+
+  async updateCredential(
+    id: string,
+    updates: Partial<Credential>
+  ): Promise<Credential> {
+    const index = this.data.credentials.findIndex((cred) => cred.id === id);
+    if (index === -1) {
+      throw new Error(`Credential with id '${id}' not found`);
+    }
+    this.data.credentials[index] = {
+      ...this.data.credentials[index],
+      ...updates,
+      updatedAt: new Date().toISOString(),
+    };
+    await this.save();
+    return {
+      ...this.data.credentials[index],
+      config: this.maskCredentialConfig(this.data.credentials[index].config),
+    };
+  }
+
+  async removeCredential(id: string): Promise<boolean> {
+    const index = this.data.credentials.findIndex((cred) => cred.id === id);
+    if (index === -1) {
+      return false;
+    }
+    this.data.credentials.splice(index, 1);
+    await this.save();
+    return true;
+  }
+
+  // Whitelist validation
+  isUrlWhitelisted(url: string): boolean {
+    const normalizedUrl = this.normalizeUrl(url);
+    return this.data.apiDocs.some((doc) => {
+      const docBaseUrl = this.normalizeUrl(doc.baseUrl);
+      return normalizedUrl.startsWith(docBaseUrl);
+    });
+  }
+
+  getWhitelistedBaseUrls(): string[] {
+    return this.data.apiDocs.map((doc) => doc.baseUrl);
+  }
+
+  private normalizeUrl(url: string): string {
+    try {
+      const parsed = new URL(url);
+      return `${parsed.protocol}//${parsed.host}${parsed.pathname}`.replace(
+        /\/+$/,
+        ''
+      );
+    } catch {
+      return url.replace(/\/+$/, '');
+    }
+  }
+
+  private maskCredentialConfig(
+    config: Credential['config']
+  ): Credential['config'] {
+    const masked = { ...config };
+    const sensitiveFields = [
+      'apiKey',
+      'token',
+      'password',
+      'clientSecret',
+      'accessToken',
+      'refreshToken',
+    ] as const;
+
+    for (const field of sensitiveFields) {
+      if (masked[field]) {
+        const value = masked[field] as string;
+        masked[field] =
+          value.substring(0, 4) + '****' + value.substring(value.length - 4);
+      }
+    }
+
+    if (masked.headers) {
+      masked.headers = Object.fromEntries(
+        Object.entries(masked.headers).map(([key, value]) => [
+          key,
+          key.toLowerCase().includes('auth') ||
+          key.toLowerCase().includes('secret') ||
+          key.toLowerCase().includes('key')
+            ? value.substring(0, 4) + '****' + value.substring(value.length - 4)
+            : value,
+        ])
+      );
+    }
+
+    return masked;
+  }
+}
+
+// Singleton instance
+let storageInstance: Storage | null = null;
+
+export async function getStorage(storageDir?: string): Promise<Storage> {
+  if (!storageInstance) {
+    storageInstance = new Storage(storageDir);
+    await storageInstance.init();
+  }
+  return storageInstance;
+}
