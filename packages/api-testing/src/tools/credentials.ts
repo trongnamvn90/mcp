@@ -68,7 +68,7 @@ export const addCredentialSchema = z.object({
     .optional()
     .describe('Login endpoint URL (for autoToken type)'),
   loginMethod: z
-    .enum(['GET', 'POST', 'PUT'])
+    .enum(['GET', 'POST'])
     .optional()
     .default('POST')
     .describe('HTTP method for login (default: POST)'),

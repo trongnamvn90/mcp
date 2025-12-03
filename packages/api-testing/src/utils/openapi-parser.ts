@@ -284,11 +284,19 @@ export function getEndpointInfo(
   );
 }
 
+const MAX_SCHEMA_DEPTH = 50; // Prevent stack overflow from deeply nested schemas
+
 export function resolveSchema(
   apiDoc: ApiDoc,
   schema: ApiSchema,
-  visitedRefs: Set<string> = new Set()
+  visitedRefs: Set<string> = new Set(),
+  depth: number = 0
 ): ApiSchema {
+  // Prevent stack overflow from excessive recursion
+  if (depth >= MAX_SCHEMA_DEPTH) {
+    return { ...schema, _maxDepthReached: true };
+  }
+
   if (schema.$ref) {
     // Detect circular reference
     if (visitedRefs.has(schema.$ref)) {
@@ -301,20 +309,20 @@ export function resolveSchema(
       // Track this ref as visited
       const newVisited = new Set(visitedRefs);
       newVisited.add(schema.$ref);
-      return resolveSchema(apiDoc, resolved, newVisited);
+      return resolveSchema(apiDoc, resolved, newVisited, depth + 1);
     }
   }
 
   if (schema.properties) {
     const resolvedProps: Record<string, ApiSchema> = {};
     for (const [key, prop] of Object.entries(schema.properties)) {
-      resolvedProps[key] = resolveSchema(apiDoc, prop, visitedRefs);
+      resolvedProps[key] = resolveSchema(apiDoc, prop, visitedRefs, depth + 1);
     }
     return { ...schema, properties: resolvedProps };
   }
 
   if (schema.items) {
-    return { ...schema, items: resolveSchema(apiDoc, schema.items, visitedRefs) };
+    return { ...schema, items: resolveSchema(apiDoc, schema.items, visitedRefs, depth + 1) };
   }
 
   return schema;

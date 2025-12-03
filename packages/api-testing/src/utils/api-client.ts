@@ -11,8 +11,32 @@ import type {
   TokenCache,
 } from '../types/index.js';
 
-// In-memory token cache
+// In-memory token cache with expiration
 const tokenCache = new Map<string, TokenCache>();
+const TOKEN_CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours max cache age
+const TOKEN_CACHE_CLEANUP_INTERVAL_MS = 60 * 60 * 1000; // Cleanup every hour
+
+// Periodic cleanup of expired tokens to prevent memory leaks
+let cleanupIntervalId: ReturnType<typeof setInterval> | null = null;
+
+function startTokenCacheCleanup(): void {
+  if (cleanupIntervalId) return;
+  cleanupIntervalId = setInterval(() => {
+    const now = Date.now();
+    for (const [key, cached] of tokenCache.entries()) {
+      if (now - cached.obtainedAt > TOKEN_CACHE_MAX_AGE_MS) {
+        tokenCache.delete(key);
+      }
+    }
+  }, TOKEN_CACHE_CLEANUP_INTERVAL_MS);
+  // Don't prevent process exit
+  if (cleanupIntervalId.unref) {
+    cleanupIntervalId.unref();
+  }
+}
+
+// Start cleanup on module load
+startTokenCacheCleanup();
 
 /**
  * Get cached token for a credential
@@ -97,8 +121,9 @@ async function performLogin(credential: Credential): Promise<string> {
   const token = getValueByPath(responseBody, tokenPath);
 
   if (!token || typeof token !== 'string') {
+    const responsePreview = JSON.stringify(responseBody)?.substring(0, 200) ?? 'N/A';
     throw new Error(
-      `Failed to extract token from login response using path '${tokenPath}'. Response: ${JSON.stringify(responseBody).substring(0, 200)}`
+      `Failed to extract token from login response using path '${tokenPath}'. Response: ${responsePreview}`
     );
   }
 

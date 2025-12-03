@@ -32,11 +32,16 @@ export class Storage {
         const content = await readFile(this.storagePath, 'utf-8');
         this.data = JSON.parse(content);
       } catch (error) {
-        // Log error for debugging - don't silently fail
-        console.error(
-          `[Storage] Failed to load data from ${this.storagePath}:`,
-          error instanceof Error ? error.message : error
-        );
+        // Log full error with stack trace for debugging
+        console.error(`[Storage] Failed to load data from ${this.storagePath}:`);
+        if (error instanceof Error) {
+          console.error(`[Storage] Error: ${error.message}`);
+          if (error.stack) {
+            console.error(`[Storage] Stack trace:\n${error.stack}`);
+          }
+        } else {
+          console.error('[Storage] Error:', error);
+        }
         console.error('[Storage] Starting with empty data');
         this.data = { apiDocs: [], credentials: [] };
       }

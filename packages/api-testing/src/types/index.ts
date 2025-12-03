@@ -46,6 +46,7 @@ export interface ApiSchema {
   example?: unknown;
   $ref?: string;
   _circular?: boolean; // Marker for detected circular references
+  _maxDepthReached?: boolean; // Marker for max recursion depth reached
 }
 
 export interface ApiResponse {
@@ -125,7 +126,7 @@ export interface CredentialConfig {
 
   // For autoToken type
   loginUrl?: string;
-  loginMethod?: 'GET' | 'POST' | 'PUT';
+  loginMethod?: 'GET' | 'POST'; // Only GET/POST are conventional for auth
   loginBody?: Record<string, unknown>;
   loginHeaders?: Record<string, string>;
   tokenPath?: string; // JSON path to extract token, e.g., "data.token" or "token"
