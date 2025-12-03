@@ -207,7 +207,7 @@ export class Storage {
     ] as const;
 
     for (const field of sensitiveFields) {
-      if (masked[field]) {
+      if (field in masked && masked[field]) {
         const value = masked[field] as string;
         masked[field] = this.maskString(value);
       }

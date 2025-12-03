@@ -289,7 +289,7 @@ const TOOLS = [
         loginUrl: { type: 'string', description: 'Login endpoint URL (for autoToken)' },
         loginMethod: {
           type: 'string',
-          enum: ['GET', 'POST', 'PUT'],
+          enum: ['GET', 'POST'],
           description: 'Login HTTP method (default: POST)',
         },
         loginBody: {

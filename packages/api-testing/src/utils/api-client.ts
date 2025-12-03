@@ -121,7 +121,7 @@ async function performLogin(credential: Credential): Promise<string> {
   const token = getValueByPath(responseBody, tokenPath);
 
   if (!token || typeof token !== 'string') {
-    const responsePreview = JSON.stringify(responseBody)?.substring(0, 200) ?? 'N/A';
+    const responsePreview = JSON.stringify(responseBody).substring(0, 200);
     throw new Error(
       `Failed to extract token from login response using path '${tokenPath}'. Response: ${responsePreview}`
     );

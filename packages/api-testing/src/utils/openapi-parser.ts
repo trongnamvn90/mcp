@@ -303,7 +303,7 @@ export function resolveSchema(
       return { ...schema, _circular: true };
     }
 
-    const refPath = schema.$ref.replace('#/components/schemas/', '').replace('#/definitions/', '');
+    const refPath = schema.$ref.replaceAll('#/components/schemas/', '').replaceAll('#/definitions/', '');
     const resolved = apiDoc.schemas?.[refPath];
     if (resolved) {
       // Track this ref as visited
