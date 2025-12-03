@@ -47,14 +47,60 @@ MCP server for API testing with the following capabilities:
 | `call_api` | Call API endpoint (must be whitelisted) |
 | `call_raw_api` | Call any whitelisted URL |
 
-**Workflow Example:**
+**Credential Types:**
+
+| Type | Description | Required Fields |
+|------|-------------|-----------------|
+| `apiKey` | Static API key in header | `apiKey`, `apiKeyHeader` (default: X-API-Key) |
+| `bearer` | Static bearer token | `token` |
+| `basic` | Username/password | `username`, `password` |
+| `oauth2` | OAuth2 tokens | `accessToken` or `clientId` |
+| `custom` | Custom headers object | `headers` |
+| `customHeaders` | Array of 1-5 static headers | `customHeaders: [{name, value}]` |
+| `autoToken` | Auto-login & refresh token | `loginUrl`, `loginBody`, `tokenPath` |
+
+**Workflow Examples:**
 
 ```
+# Basic flow with API key
 1. Add API doc: add_api_doc(id="petstore", name="Petstore API", specUrl="https://petstore3.swagger.io/api/v3/openapi.json")
 2. Search endpoints: search_endpoints(query="pet")
 3. Get endpoint info: get_endpoint_info(apiDocId="petstore", path="/pet/{petId}", method="GET")
 4. Add credential: add_credential(id="petstore-key", name="Petstore API Key", type="apiKey", apiKey="xxx")
 5. Call API: call_api(apiDocId="petstore", path="/pet/{petId}", method="GET", pathParams={"petId": "1"}, credentialId="petstore-key")
+```
+
+```
+# Auto-token flow (add once, forget about login)
+add_credential({
+  id: "my-backend",
+  name: "My Backend Auth",
+  type: "autoToken",
+  loginUrl: "https://api.myapp.com/auth/login",
+  loginMethod: "POST",
+  loginBody: { "username": "admin", "password": "secret123" },
+  tokenPath: "data.token",           // Extract from { data: { token: "xxx" } }
+  tokenHeader: "Authorization",      // Header to send token
+  tokenPrefix: "Bearer ",            // Prefix for token value
+  invalidStatusCodes: [401, 403]     // Re-login when these status codes returned
+})
+
+# Then just call APIs - token auto-managed
+call_api(apiDocId="my-backend", path="/users", method="GET", credentialId="my-backend")
+```
+
+```
+# Custom headers (for APIs requiring multiple headers)
+add_credential({
+  id: "multi-header-api",
+  name: "Multi Header API",
+  type: "customHeaders",
+  customHeaders: [
+    { name: "X-API-Key", value: "key123" },
+    { name: "X-Client-ID", value: "client456" },
+    { name: "X-Signature", value: "sig789" }
+  ]
+})
 ```
 
 ## Development Commands
@@ -115,9 +161,10 @@ Add to your Claude Code MCP config (`~/.claude/mcp.json` or project `.mcp.json`)
 ## Security Notes
 
 - Only whitelisted URLs can be called (URLs from registered API docs)
-- Credentials are stored locally on disk
-- Sensitive values masked in tool outputs
-- No automatic credential rotation (OAuth2 refresh not implemented)
+- Credentials are stored locally on disk (`~/.mcp-api-testing/data.json`)
+- Sensitive values (passwords, tokens, API keys) are masked in tool outputs
+- `autoToken` credentials automatically re-login when token expires (detected via status codes)
+- Token cache is in-memory only (cleared on server restart)
 
 ## TypeScript Guidelines
 

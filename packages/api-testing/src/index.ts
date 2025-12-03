@@ -237,7 +237,14 @@ const TOOLS = [
   // Credentials Management
   {
     name: 'add_credential',
-    description: 'Add a new credential for API authentication',
+    description: `Add a new credential for API authentication. Supported types:
+- apiKey: Static API key in header
+- bearer: Static bearer token
+- basic: Username/password
+- oauth2: OAuth2 tokens
+- custom: Custom headers object
+- customHeaders: Array of 1-5 static headers (for multi-header auth)
+- autoToken: Auto-login and refresh token when expired`,
     inputSchema: {
       type: 'object',
       properties: {
@@ -245,26 +252,76 @@ const TOOLS = [
         name: { type: 'string', description: 'Display name' },
         type: {
           type: 'string',
-          enum: ['apiKey', 'bearer', 'basic', 'oauth2', 'custom'],
+          enum: ['apiKey', 'bearer', 'basic', 'oauth2', 'custom', 'autoToken', 'customHeaders'],
           description: 'Authentication type',
         },
         apiDocId: { type: 'string', description: 'Associate with API doc' },
+        // apiKey type
         apiKey: { type: 'string', description: 'API key (for apiKey type)' },
-        apiKeyHeader: {
-          type: 'string',
-          description: 'Header name (default: X-API-Key)',
-        },
-        token: { type: 'string', description: 'Bearer token' },
-        username: { type: 'string', description: 'Username (for basic)' },
-        password: { type: 'string', description: 'Password (for basic)' },
+        apiKeyHeader: { type: 'string', description: 'Header name (default: X-API-Key)' },
+        // bearer type
+        token: { type: 'string', description: 'Bearer token (for bearer type)' },
+        // basic type
+        username: { type: 'string', description: 'Username (for basic type)' },
+        password: { type: 'string', description: 'Password (for basic type)' },
+        // oauth2 type
         accessToken: { type: 'string', description: 'OAuth2 access token' },
         refreshToken: { type: 'string', description: 'OAuth2 refresh token' },
         clientId: { type: 'string', description: 'OAuth2 client ID' },
         clientSecret: { type: 'string', description: 'OAuth2 client secret' },
         tokenUrl: { type: 'string', description: 'OAuth2 token URL' },
-        headers: {
+        // custom type (legacy)
+        headers: { type: 'object', description: 'Custom headers object (for custom type)' },
+        // customHeaders type (1-5 headers)
+        customHeaders: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              name: { type: 'string', description: 'Header name' },
+              value: { type: 'string', description: 'Header value' },
+            },
+            required: ['name', 'value'],
+          },
+          description: 'Array of 1-5 custom headers (for customHeaders type)',
+        },
+        // autoToken type
+        loginUrl: { type: 'string', description: 'Login endpoint URL (for autoToken)' },
+        loginMethod: {
+          type: 'string',
+          enum: ['GET', 'POST', 'PUT'],
+          description: 'Login HTTP method (default: POST)',
+        },
+        loginBody: {
           type: 'object',
-          description: 'Custom headers (for custom type)',
+          description: 'Login request body, e.g., { "username": "xxx", "password": "yyy" }',
+        },
+        loginHeaders: { type: 'object', description: 'Additional login headers' },
+        tokenPath: {
+          type: 'string',
+          description: 'JSON path to token in response (e.g., "data.token", default: "token")',
+        },
+        tokenHeader: {
+          type: 'string',
+          description: 'Header name for token (default: Authorization)',
+        },
+        tokenPrefix: {
+          type: 'string',
+          description: 'Token prefix (default: "Bearer ")',
+        },
+        invalidStatusCodes: {
+          type: 'array',
+          items: { type: 'number' },
+          description: 'Status codes indicating invalid token (default: [401, 403])',
+        },
+        validityCheckUrl: {
+          type: 'string',
+          description: 'Optional URL to check token validity before API calls',
+        },
+        validityCheckMethod: {
+          type: 'string',
+          enum: ['GET', 'POST'],
+          description: 'Validity check HTTP method (default: GET)',
         },
       },
       required: ['id', 'name', 'type'],
@@ -284,7 +341,24 @@ const TOOLS = [
         password: { type: 'string', description: 'New password' },
         accessToken: { type: 'string', description: 'New access token' },
         refreshToken: { type: 'string', description: 'New refresh token' },
-        headers: { type: 'object', description: 'New headers' },
+        headers: { type: 'object', description: 'New headers (for custom type)' },
+        customHeaders: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              name: { type: 'string' },
+              value: { type: 'string' },
+            },
+          },
+          description: 'New custom headers array (for customHeaders type)',
+        },
+        loginBody: { type: 'object', description: 'New login body (for autoToken)' },
+        invalidStatusCodes: {
+          type: 'array',
+          items: { type: 'number' },
+          description: 'New invalid status codes (for autoToken)',
+        },
       },
       required: ['id'],
     },

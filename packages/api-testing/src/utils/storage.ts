@@ -188,22 +188,83 @@ export class Storage {
     for (const field of sensitiveFields) {
       if (masked[field]) {
         const value = masked[field] as string;
-        masked[field] =
-          value.substring(0, 4) + '****' + value.substring(value.length - 4);
+        masked[field] = this.maskString(value);
       }
     }
 
+    // Mask legacy custom headers
     if (masked.headers) {
       masked.headers = Object.fromEntries(
         Object.entries(masked.headers).map(([key, value]) => [
           key,
-          key.toLowerCase().includes('auth') ||
-          key.toLowerCase().includes('secret') ||
-          key.toLowerCase().includes('key')
-            ? value.substring(0, 4) + '****' + value.substring(value.length - 4)
-            : value,
+          this.isSensitiveHeader(key) ? this.maskString(value) : value,
         ])
       );
+    }
+
+    // Mask customHeaders array
+    if (masked.customHeaders) {
+      masked.customHeaders = masked.customHeaders.map((header) => ({
+        name: header.name,
+        value: this.isSensitiveHeader(header.name)
+          ? this.maskString(header.value)
+          : header.value,
+      }));
+    }
+
+    // Mask loginBody sensitive fields (password, secret, etc.)
+    if (masked.loginBody) {
+      masked.loginBody = this.maskLoginBody(masked.loginBody);
+    }
+
+    // Mask loginHeaders
+    if (masked.loginHeaders) {
+      masked.loginHeaders = Object.fromEntries(
+        Object.entries(masked.loginHeaders).map(([key, value]) => [
+          key,
+          this.isSensitiveHeader(key) ? this.maskString(value) : value,
+        ])
+      );
+    }
+
+    return masked;
+  }
+
+  private maskString(value: string): string {
+    if (value.length <= 8) {
+      return '****';
+    }
+    return value.substring(0, 4) + '****' + value.substring(value.length - 4);
+  }
+
+  private isSensitiveHeader(headerName: string): boolean {
+    const lower = headerName.toLowerCase();
+    return (
+      lower.includes('auth') ||
+      lower.includes('secret') ||
+      lower.includes('key') ||
+      lower.includes('token') ||
+      lower.includes('bearer') ||
+      lower.includes('api-key') ||
+      lower.includes('apikey')
+    );
+  }
+
+  private maskLoginBody(
+    body: Record<string, unknown>
+  ): Record<string, unknown> {
+    const sensitiveKeys = ['password', 'secret', 'token', 'key', 'credential'];
+    const masked: Record<string, unknown> = {};
+
+    for (const [key, value] of Object.entries(body)) {
+      const keyLower = key.toLowerCase();
+      const isSensitive = sensitiveKeys.some((s) => keyLower.includes(s));
+
+      if (isSensitive && typeof value === 'string') {
+        masked[key] = this.maskString(value);
+      } else {
+        masked[key] = value;
+      }
     }
 
     return masked;

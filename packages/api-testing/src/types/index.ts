@@ -90,7 +90,7 @@ export interface Credential {
   id: string;
   name: string;
   apiDocId?: string;
-  type: 'apiKey' | 'bearer' | 'basic' | 'oauth2' | 'custom';
+  type: 'apiKey' | 'bearer' | 'basic' | 'oauth2' | 'custom' | 'autoToken' | 'customHeaders';
   config: CredentialConfig;
   createdAt: string;
   updatedAt: string;
@@ -116,8 +116,30 @@ export interface CredentialConfig {
   refreshToken?: string;
   tokenUrl?: string;
 
-  // Custom headers
+  // Custom headers (legacy, max unlimited)
   headers?: Record<string, string>;
+
+  // For customHeaders type (1-5 static headers)
+  customHeaders?: Array<{ name: string; value: string }>;
+
+  // For autoToken type
+  loginUrl?: string;
+  loginMethod?: 'GET' | 'POST' | 'PUT';
+  loginBody?: Record<string, unknown>;
+  loginHeaders?: Record<string, string>;
+  tokenPath?: string; // JSON path to extract token, e.g., "data.token" or "token"
+  tokenHeader?: string; // Header name to send token, default "Authorization"
+  tokenPrefix?: string; // Prefix for token, e.g., "Bearer "
+  invalidStatusCodes?: number[]; // Status codes that indicate invalid token, e.g., [401, 403]
+  validityCheckUrl?: string; // Optional: URL to check token validity
+  validityCheckMethod?: 'GET' | 'POST';
+}
+
+// Token cache for autoToken credentials
+export interface TokenCache {
+  credentialId: string;
+  token: string;
+  obtainedAt: number; // timestamp
 }
 
 export interface ApiCallRequest {

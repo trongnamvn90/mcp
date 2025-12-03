@@ -7,12 +7,18 @@ import { z } from 'zod';
 import { getStorage } from '../utils/storage.js';
 import type { Credential, CredentialConfig } from '../types/index.js';
 
+// Custom header schema (for customHeaders type)
+const customHeaderSchema = z.object({
+  name: z.string().describe('Header name'),
+  value: z.string().describe('Header value'),
+});
+
 // Schemas for tool parameters
 export const addCredentialSchema = z.object({
   id: z.string().describe('Unique identifier for the credential'),
   name: z.string().describe('Display name for the credential'),
   type: z
-    .enum(['apiKey', 'bearer', 'basic', 'oauth2', 'custom'])
+    .enum(['apiKey', 'bearer', 'basic', 'oauth2', 'custom', 'autoToken', 'customHeaders'])
     .describe('Authentication type'),
   apiDocId: z
     .string()
@@ -41,11 +47,69 @@ export const addCredentialSchema = z.object({
   refreshToken: z.string().optional().describe('OAuth2 refresh token'),
   tokenUrl: z.string().optional().describe('OAuth2 token endpoint URL'),
 
-  // Custom headers
+  // Legacy custom headers (for custom type)
   headers: z
     .record(z.string())
     .optional()
-    .describe('Custom headers (for custom type)'),
+    .describe('Custom headers as object (for custom type)'),
+
+  // New customHeaders type (1-5 headers)
+  customHeaders: z
+    .array(customHeaderSchema)
+    .min(1)
+    .max(5)
+    .optional()
+    .describe('Array of 1-5 custom headers (for customHeaders type)'),
+
+  // autoToken config
+  loginUrl: z
+    .string()
+    .url()
+    .optional()
+    .describe('Login endpoint URL (for autoToken type)'),
+  loginMethod: z
+    .enum(['GET', 'POST', 'PUT'])
+    .optional()
+    .default('POST')
+    .describe('HTTP method for login (default: POST)'),
+  loginBody: z
+    .record(z.unknown())
+    .optional()
+    .describe('Login request body, e.g., { "username": "xxx", "password": "yyy" }'),
+  loginHeaders: z
+    .record(z.string())
+    .optional()
+    .describe('Additional headers for login request'),
+  tokenPath: z
+    .string()
+    .optional()
+    .default('token')
+    .describe('JSON path to extract token from response (e.g., "data.token" or "token")'),
+  tokenHeader: z
+    .string()
+    .optional()
+    .default('Authorization')
+    .describe('Header name to send token (default: Authorization)'),
+  tokenPrefix: z
+    .string()
+    .optional()
+    .default('Bearer ')
+    .describe('Prefix for token value (default: "Bearer ")'),
+  invalidStatusCodes: z
+    .array(z.number())
+    .optional()
+    .default([401, 403])
+    .describe('Status codes indicating invalid token (default: [401, 403])'),
+  validityCheckUrl: z
+    .string()
+    .url()
+    .optional()
+    .describe('Optional URL to check token validity before API calls'),
+  validityCheckMethod: z
+    .enum(['GET', 'POST'])
+    .optional()
+    .default('GET')
+    .describe('HTTP method for validity check (default: GET)'),
 });
 
 export const updateCredentialSchema = z.object({
@@ -58,6 +122,20 @@ export const updateCredentialSchema = z.object({
   accessToken: z.string().optional().describe('New access token'),
   refreshToken: z.string().optional().describe('New refresh token'),
   headers: z.record(z.string()).optional().describe('New custom headers'),
+  customHeaders: z
+    .array(customHeaderSchema)
+    .min(1)
+    .max(5)
+    .optional()
+    .describe('New custom headers array (1-5)'),
+  loginBody: z
+    .record(z.unknown())
+    .optional()
+    .describe('New login body (for autoToken)'),
+  invalidStatusCodes: z
+    .array(z.number())
+    .optional()
+    .describe('New invalid status codes'),
 });
 
 export const removeCredentialSchema = z.object({
@@ -155,6 +233,49 @@ export async function addCredential(
         }
         config.headers = params.headers;
         break;
+
+      case 'customHeaders':
+        if (!params.customHeaders || params.customHeaders.length === 0) {
+          return {
+            success: false,
+            error: 'customHeaders (1-5 headers) are required for customHeaders type',
+          };
+        }
+        if (params.customHeaders.length > 5) {
+          return {
+            success: false,
+            error: 'customHeaders type supports maximum 5 headers',
+          };
+        }
+        config.customHeaders = params.customHeaders;
+        break;
+
+      case 'autoToken':
+        if (!params.loginUrl) {
+          return {
+            success: false,
+            error: 'loginUrl is required for autoToken type',
+          };
+        }
+        if (!params.loginBody) {
+          return {
+            success: false,
+            error: 'loginBody is required for autoToken type (e.g., { "username": "xxx", "password": "yyy" })',
+          };
+        }
+        config.loginUrl = params.loginUrl;
+        config.loginMethod = params.loginMethod || 'POST';
+        config.loginBody = params.loginBody;
+        config.loginHeaders = params.loginHeaders;
+        config.tokenPath = params.tokenPath || 'token';
+        config.tokenHeader = params.tokenHeader || 'Authorization';
+        config.tokenPrefix = params.tokenPrefix ?? 'Bearer ';
+        config.invalidStatusCodes = params.invalidStatusCodes || [401, 403];
+        if (params.validityCheckUrl) {
+          config.validityCheckUrl = params.validityCheckUrl;
+          config.validityCheckMethod = params.validityCheckMethod || 'GET';
+        }
+        break;
     }
 
     const credential: Credential = {
@@ -217,6 +338,18 @@ export async function updateCredential(
     if (params.refreshToken !== undefined)
       newConfig.refreshToken = params.refreshToken;
     if (params.headers !== undefined) newConfig.headers = params.headers;
+    if (params.customHeaders !== undefined) {
+      if (params.customHeaders.length > 5) {
+        return {
+          success: false,
+          error: 'customHeaders supports maximum 5 headers',
+        };
+      }
+      newConfig.customHeaders = params.customHeaders;
+    }
+    if (params.loginBody !== undefined) newConfig.loginBody = params.loginBody;
+    if (params.invalidStatusCodes !== undefined)
+      newConfig.invalidStatusCodes = params.invalidStatusCodes;
 
     const updates: Partial<Credential> = {
       config: newConfig,
