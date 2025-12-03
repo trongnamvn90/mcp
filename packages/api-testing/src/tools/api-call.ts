@@ -4,146 +4,14 @@
 
 import { z } from 'zod';
 import { getStorage } from '../utils/storage.js';
-import { makeApiCall, validateUrlAgainstWhitelist, getCachedToken, clearCachedToken } from '../utils/api-client.js';
+import {
+  makeApiCall,
+  validateUrlAgainstWhitelist,
+  clearCachedToken,
+  applyCredentials,
+  executeRequest,
+} from '../utils/api-client.js';
 import { getEndpointInfo } from '../utils/openapi-parser.js';
-import type { ApiCallResponse, Credential } from '../types/index.js';
-
-/**
- * Apply credentials to headers for raw API calls
- * Handles all credential types including autoToken and customHeaders
- */
-async function applyCredentialsToHeaders(
-  headers: Record<string, string>,
-  credential: Credential
-): Promise<void> {
-  const { type, config } = credential;
-
-  switch (type) {
-    case 'apiKey':
-      if (config.apiKeyHeader && config.apiKey) {
-        headers[config.apiKeyHeader] = config.apiKey;
-      }
-      break;
-
-    case 'bearer':
-      if (config.token) {
-        headers['Authorization'] = `Bearer ${config.token}`;
-      }
-      break;
-
-    case 'basic':
-      if (config.username && config.password) {
-        const encoded = Buffer.from(
-          `${config.username}:${config.password}`
-        ).toString('base64');
-        headers['Authorization'] = `Basic ${encoded}`;
-      }
-      break;
-
-    case 'oauth2':
-      if (config.accessToken) {
-        headers['Authorization'] = `Bearer ${config.accessToken}`;
-      }
-      break;
-
-    case 'custom':
-      if (config.headers) {
-        Object.assign(headers, config.headers);
-      }
-      break;
-
-    case 'customHeaders':
-      if (config.customHeaders) {
-        for (const header of config.customHeaders) {
-          headers[header.name] = header.value;
-        }
-      }
-      break;
-
-    case 'autoToken': {
-      // Get token from cache or perform login
-      let token = getCachedToken(credential.id);
-
-      if (!token) {
-        // Need to login first
-        token = await performAutoTokenLogin(credential);
-      }
-
-      const tokenHeader = config.tokenHeader || 'Authorization';
-      const tokenPrefix = config.tokenPrefix ?? 'Bearer ';
-      headers[tokenHeader] = `${tokenPrefix}${token}`;
-      break;
-    }
-  }
-}
-
-/**
- * Perform login for autoToken credential
- */
-async function performAutoTokenLogin(credential: Credential): Promise<string> {
-  const { config } = credential;
-
-  if (!config.loginUrl) {
-    throw new Error('loginUrl is required for autoToken credential');
-  }
-
-  const loginHeaders: Record<string, string> = {
-    'Content-Type': 'application/json',
-    Accept: 'application/json',
-    ...config.loginHeaders,
-  };
-
-  const fetchOptions: RequestInit = {
-    method: config.loginMethod || 'POST',
-    headers: loginHeaders,
-  };
-
-  if (config.loginBody && config.loginMethod !== 'GET') {
-    fetchOptions.body = JSON.stringify(config.loginBody);
-  }
-
-  const response = await fetch(config.loginUrl, fetchOptions);
-
-  if (!response.ok) {
-    const errorBody = await response.text().catch(() => '');
-    throw new Error(
-      `Login failed: ${response.status} ${response.statusText}. ${errorBody}`
-    );
-  }
-
-  const responseBody = await response.json();
-  const tokenPath = config.tokenPath || 'token';
-  const token = getValueByPath(responseBody, tokenPath);
-
-  if (!token || typeof token !== 'string') {
-    throw new Error(
-      `Failed to extract token from login response using path '${tokenPath}'`
-    );
-  }
-
-  return token;
-}
-
-/**
- * Extract value from object using dot notation path
- */
-function getValueByPath(obj: unknown, path: string): unknown {
-  const parts = path.split('.');
-  let current: unknown = obj;
-
-  for (const part of parts) {
-    if (current === null || current === undefined) {
-      return undefined;
-    }
-    if (typeof current === 'object') {
-      current = (current as Record<string, unknown>)[part];
-    } else {
-      return undefined;
-    }
-  }
-
-  return current;
-}
 
 // Schemas for tool parameters
 export const callApiSchema = z.object({
@@ -318,71 +186,6 @@ export async function callApi(
   }
 }
 
-/**
- * Execute raw HTTP request and return parsed response
- */
-async function executeRawRequest(
-  url: string,
-  method: string,
-  headers: Record<string, string>,
-  body?: unknown
-): Promise<{
-  status: number;
-  statusText: string;
-  headers: Record<string, string>;
-  body: unknown;
-  duration: number;
-}> {
-  const startTime = Date.now();
-  const fetchOptions: RequestInit = {
-    method,
-    headers,
-  };
-
-  if (body && !['GET', 'HEAD'].includes(method)) {
-    fetchOptions.body =
-      typeof body === 'string' ? body : JSON.stringify(body);
-  }
-
-  const response = await fetch(url, fetchOptions);
-  const endTime = Date.now();
-
-  // Parse response headers
-  const responseHeaders: Record<string, string> = {};
-  response.headers.forEach((value, key) => {
-    responseHeaders[key] = value;
-  });
-
-  // Parse response body
-  let responseBody: unknown;
-  const contentType = response.headers.get('content-type') || '';
-
-  try {
-    if (contentType.includes('application/json')) {
-      responseBody = await response.json();
-    } else if (contentType.includes('text/')) {
-      responseBody = await response.text();
-    } else {
-      const buffer = await response.arrayBuffer();
-      responseBody = {
-        _binary: true,
-        size: buffer.byteLength,
-        contentType,
-      };
-    }
-  } catch {
-    responseBody = await response.text().catch(() => null);
-  }
-
-  return {
-    status: response.status,
-    statusText: response.statusText,
-    headers: responseHeaders,
-    body: responseBody,
-    duration: endTime - startTime,
-  };
-}
-
 export async function callRawApi(
   params: z.infer<typeof callRawApiSchema>
 ): Promise<{
@@ -433,11 +236,11 @@ export async function callRawApi(
 
     // Apply credentials (supports all types including autoToken and customHeaders)
     if (credential) {
-      await applyCredentialsToHeaders(headers, credential);
+      await applyCredentials(headers, credential);
     }
 
     // Make request with retry for autoToken
-    let response = await executeRawRequest(params.url, params.method, headers, params.body);
+    let response = await executeRequest(params.url, params.method, headers, params.body);
 
     // Handle autoToken retry on invalid status
     if (
@@ -453,15 +256,21 @@ export async function callRawApi(
         Accept: 'application/json',
         ...params.headers,
       };
-      await applyCredentialsToHeaders(retryHeaders, credential);
+      await applyCredentials(retryHeaders, credential);
 
       // Retry request
-      response = await executeRawRequest(params.url, params.method, retryHeaders, params.body);
+      response = await executeRequest(params.url, params.method, retryHeaders, params.body);
     }
 
     return {
       success: true,
-      response,
+      response: {
+        status: response.status,
+        statusText: response.statusText,
+        headers: response.headers,
+        body: response.body,
+        duration: response.timing.duration,
+      },
     };
   } catch (error) {
     return {

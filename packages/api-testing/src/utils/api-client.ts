@@ -32,7 +32,11 @@ export function clearCachedToken(credentialId: string): void {
  * Extract value from object using dot notation path
  * e.g., "data.token" from { data: { token: "xxx" } }
  */
-function getValueByPath(obj: unknown, path: string): unknown {
+export function getValueByPath(obj: unknown, path: string): unknown {
+  if (!path || typeof path !== 'string') {
+    return undefined;
+  }
+
   const parts = path.split('.');
   let current: unknown = obj;
 
@@ -40,11 +44,15 @@ function getValueByPath(obj: unknown, path: string): unknown {
     if (current === null || current === undefined) {
       return undefined;
     }
-    if (typeof current === 'object') {
-      current = (current as Record<string, unknown>)[part];
-    } else {
+    if (typeof current !== 'object' || Array.isArray(current)) {
+      // Cannot traverse non-object or array with dot notation
       return undefined;
     }
+    if (!Object.prototype.hasOwnProperty.call(current, part)) {
+      // Key doesn't exist
+      return undefined;
+    }
+    current = (current as Record<string, unknown>)[part];
   }
 
   return current;
@@ -164,7 +172,7 @@ async function getAutoToken(credential: Credential): Promise<string> {
 /**
  * Apply credentials to request headers
  */
-async function applyCredentials(
+export async function applyCredentials(
   headers: Record<string, string>,
   credential: Credential
 ): Promise<void> {
@@ -277,7 +285,7 @@ export async function makeApiCall(
 /**
  * Execute the actual HTTP request
  */
-async function executeRequest(
+export async function executeRequest(
   url: string,
   method: string,
   headers: Record<string, string>,

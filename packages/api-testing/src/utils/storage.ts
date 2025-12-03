@@ -82,9 +82,12 @@ export class Storage {
     if (index === -1) {
       throw new Error(`API doc with id '${id}' not found`);
     }
+    // Prevent id mutation - remove id from updates to preserve primary key
+    const { id: _ignoredId, ...safeUpdates } = updates;
     this.data.apiDocs[index] = {
       ...this.data.apiDocs[index],
-      ...updates,
+      ...safeUpdates,
+      id, // Ensure id is preserved
       updatedAt: new Date().toISOString(),
     };
     await this.save();
@@ -135,9 +138,12 @@ export class Storage {
     if (index === -1) {
       throw new Error(`Credential with id '${id}' not found`);
     }
+    // Prevent id mutation - remove id from updates to preserve primary key
+    const { id: _ignoredId, ...safeUpdates } = updates;
     this.data.credentials[index] = {
       ...this.data.credentials[index],
-      ...updates,
+      ...safeUpdates,
+      id, // Ensure id is preserved
       updatedAt: new Date().toISOString(),
     };
     await this.save();
@@ -299,4 +305,13 @@ export async function getStorage(storageDir?: string): Promise<Storage> {
     );
   }
   return storageInstance;
+}
+
+/**
+ * Reset storage singleton for testing purposes.
+ * WARNING: Only use this in tests - not for production code.
+ */
+export function resetStorageForTesting(): void {
+  storageInstance = null;
+  initializedStorageDir = undefined;
 }
