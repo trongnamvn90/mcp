@@ -1,4 +1,4 @@
-# @anthropic-mcp/api-testing
+# API Scout
 
 MCP (Model Context Protocol) server for API testing, designed for Claude Code and other AI CLI tools.
 
@@ -12,25 +12,52 @@ MCP (Model Context Protocol) server for API testing, designed for Claude Code an
 
 ## Installation
 
+### From NPM (Recommended)
+
 ```bash
-npm install
-npm run build
+npx -y @trongnamvn90/api-scout
 ```
 
-## Configuration
+Or add to your Claude Desktop config directly:
 
-Add to Claude Code MCP config:
+### Configuration
+
+Add to `claude_desktop_config.json`:
 
 ```json
 {
   "mcpServers": {
-    "api-testing": {
-      "command": "node",
-      "args": ["/path/to/dist/index.js"]
+    "api-scout": {
+      "command": "npx",
+      "args": ["-y", "@trongnamvn90/api-scout"]
     }
   }
 }
 ```
+
+## Smart Caching (New! 🚀)
+
+API Scout now supports **Smart Caching** for OpenAPI docs. When your API changes, API Scout can automatically detect and refresh the documentation without manual intervention.
+
+To enable this:
+
+1.  Expose a lightweight endpoint on your server that returns a hash (e.g., MD5) of your OpenAPI spec.
+2.  When adding a doc via `add_api_doc`, provide the `apiHashUrl`.
+3.  API Scout will automatically check this hash before performing searches or lookups. If the hash has changed, it re-fetches the full documentation.
+
+**NestJS Example:**
+
+```typescript
+// main.ts
+const docString = JSON.stringify(document);
+const docHash = crypto.createHash('md5').update(docString).digest('hex');
+
+app.getHttpAdapter().get('/api/docs-hash', (req, res) => {
+  res.send(docHash);
+});
+```
+
+
 
 ## Tools
 

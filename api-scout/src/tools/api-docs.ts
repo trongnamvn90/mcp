@@ -33,6 +33,11 @@ export const addApiDocSchema = z.object({
     .url()
     .optional()
     .describe('Override base URL (auto-detected from spec if not provided)'),
+  apiHashUrl: z
+    .string()
+    .url()
+    .optional()
+    .describe('URL that returns a hash/version string to check for updates'),
 });
 
 export const removeApiDocSchema = z.object({
@@ -98,6 +103,11 @@ export async function addApiDoc(
     // Override baseUrl if provided
     if (params.baseUrl) {
       apiDoc.baseUrl = params.baseUrl;
+    }
+
+    // Save hash URL if provided
+    if (params.apiHashUrl) {
+      apiDoc.apiHashUrl = params.apiHashUrl;
     }
 
     if (!apiDoc.baseUrl) {

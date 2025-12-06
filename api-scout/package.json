@@ -1,11 +1,12 @@
 {
-  "name": "@anthropic-mcp/api-testing",
-  "version": "1.0.0",
+  "name": "@trongnamvn90/api-scout",
+  "version": "1.0.3",
   "description": "MCP server for API testing - manage API docs, credentials, and make API calls",
+  "author": "Trong Nam",
   "main": "dist/index.js",
   "type": "module",
   "bin": {
-    "mcp-api-testing": "./dist/index.js"
+    "api-scout": "./dist/index.js"
   },
   "scripts": {
     "build": "tsc",

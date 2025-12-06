@@ -9,6 +9,7 @@ import {
   getEndpointInfo,
   resolveSchema,
 } from '../utils/openapi-parser.js';
+import { checkAndRefreshApiDoc } from './smart-cache.js';
 import type { ApiEndpoint, ApiSchema } from '../types/index.js';
 
 // Schemas for tool parameters
@@ -66,6 +67,12 @@ export async function searchApiEndpoints(
   totalFound: number;
 }> {
   const storage = await getStorage();
+
+  // Smart cache check if searching specific doc
+  if (params.apiDocId) {
+    await checkAndRefreshApiDoc(params.apiDocId);
+  }
+
   const apiDocs = await storage.getApiDocs();
 
   const results = searchEndpoints(apiDocs, params.query, {
@@ -130,6 +137,9 @@ export async function getApiEndpointInfo(
   error?: string;
 }> {
   try {
+    // Smart cache check
+    await checkAndRefreshApiDoc(params.apiDocId);
+
     const storage = await getStorage();
     const apiDoc = await storage.getApiDoc(params.apiDocId);
 
@@ -152,12 +162,12 @@ export async function getApiEndpointInfo(
     // Process request body
     let requestBodyInfo:
       | {
-          description?: string;
-          required?: boolean;
-          contentTypes: string[];
-          schema?: ApiSchema;
-          example?: unknown;
-        }
+        description?: string;
+        required?: boolean;
+        contentTypes: string[];
+        schema?: ApiSchema;
+        example?: unknown;
+      }
       | undefined;
 
     if (endpoint.requestBody?.content) {
@@ -197,7 +207,7 @@ export async function getApiEndpointInfo(
           : undefined;
         const primaryContent = response.content
           ? response.content['application/json'] ||
-            Object.values(response.content)[0]
+          Object.values(response.content)[0]
           : undefined;
 
         let schema = primaryContent?.schema;
@@ -262,6 +272,9 @@ export async function listApiEndpoints(
   error?: string;
 }> {
   try {
+    // Smart cache check
+    await checkAndRefreshApiDoc(params.apiDocId);
+
     const storage = await getStorage();
     const apiDoc = await storage.getApiDoc(params.apiDocId);
 
@@ -316,6 +329,9 @@ export async function listApiTags(
   error?: string;
 }> {
   try {
+    // Smart cache check
+    await checkAndRefreshApiDoc(params.apiDocId);
+
     const storage = await getStorage();
     const apiDoc = await storage.getApiDoc(params.apiDocId);
 

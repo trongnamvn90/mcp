@@ -75,6 +75,8 @@ export interface ApiDoc {
   endpoints: ApiEndpoint[];
   schemas?: Record<string, ApiSchema>;
   securitySchemes?: Record<string, SecurityScheme>;
+  apiHashUrl?: string; // URL to check for doc changes (returns hash)
+  lastHash?: string;   // Last known hash of the docs
   addedAt: string;
   updatedAt: string;
 }
