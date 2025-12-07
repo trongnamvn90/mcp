@@ -6,8 +6,8 @@ This repository contains multiple MCP (Model Context Protocol) servers designed 
 
 ```
 mcp/
+├── api-scout/           # API Scout MCP server (formerly api-testing)
 ├── packages/
-│   ├── api-testing/     # API Testing MCP server
 │   └── [future-mcp]/    # Other MCP servers
 ├── CLAUDE.md            # This file
 └── README.md
@@ -15,12 +15,13 @@ mcp/
 
 ## Packages
 
-### api-testing
+### api-scout
 
 MCP server for API testing with the following capabilities:
 
 **Features:**
 - Manage OpenAPI/Swagger documentation
+- **Smart Caching:** Auto-refresh docs via hash prelight check
 - Whitelist-based URL access (adding API docs = whitelisting baseURLs)
 - Search and explore API endpoints
 - Store credentials securely (masked in output)
@@ -30,7 +31,7 @@ MCP server for API testing with the following capabilities:
 
 | Tool | Description |
 |------|-------------|
-| `add_api_doc` | Add API doc from OpenAPI spec URL or content, whitelists baseURL |
+| `add_api_doc` | Add API doc from OpenAPI spec URL or content, whitelists baseURL. Supports `apiHashUrl` for smart caching. |
 | `remove_api_doc` | Remove API doc and unwhitelist its baseURL |
 | `list_api_docs` | List all API docs and whitelisted URLs |
 | `get_api_doc` | Get detailed API doc info |
@@ -70,45 +71,12 @@ MCP server for API testing with the following capabilities:
 5. Call API: call_api(apiDocId="petstore", path="/pet/{petId}", method="GET", pathParams={"petId": "1"}, credentialId="petstore-key")
 ```
 
-```
-# Auto-token flow (add once, forget about login)
-add_credential({
-  id: "my-backend",
-  name: "My Backend Auth",
-  type: "autoToken",
-  loginUrl: "https://api.myapp.com/auth/login",
-  loginMethod: "POST",
-  loginBody: { "username": "admin", "password": "secret123" },
-  tokenPath: "data.token",           // Extract from { data: { token: "xxx" } }
-  tokenHeader: "Authorization",      // Header to send token
-  tokenPrefix: "Bearer ",            // Prefix for token value
-  invalidStatusCodes: [401, 403]     // Re-login when these status codes returned
-})
-
-# Then just call APIs - token auto-managed
-call_api(apiDocId="my-backend", path="/users", method="GET", credentialId="my-backend")
-```
-
-```
-# Custom headers (for APIs requiring multiple headers)
-add_credential({
-  id: "multi-header-api",
-  name: "Multi Header API",
-  type: "customHeaders",
-  customHeaders: [
-    { name: "X-API-Key", value: "key123" },
-    { name: "X-Client-ID", value: "client456" },
-    { name: "X-Signature", value: "sig789" }
-  ]
-})
-```
-
 ## Development Commands
 
-### api-testing
+### api-scout
 
 ```bash
-cd packages/api-testing
+cd api-scout
 
 # Install dependencies
 npm install
@@ -130,9 +98,9 @@ Add to your Claude Code MCP config (`~/.claude/mcp.json` or project `.mcp.json`)
 ```json
 {
   "mcpServers": {
-    "api-testing": {
+    "api-scout": {
       "command": "node",
-      "args": ["/path/to/mcp/packages/api-testing/dist/index.js"]
+      "args": ["/path/to/mcp/api-scout/dist/index.js"]
     }
   }
 }

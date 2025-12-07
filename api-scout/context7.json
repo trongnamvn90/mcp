@@ -1,0 +1,55 @@
+{
+    "name": "@trongnamvn90/api-scout",
+    "type": "mcp-server",
+    "description": "Smart MCP server for discovering, exploring, and testing APIs using OpenAPI/Swagger specs.",
+    "repository": "https://github.com/trongnamvn90/api-scout",
+    "tools": [
+        {
+            "name": "add_api_doc",
+            "description": "Import OpenAPI spec and whitelist baseURL"
+        },
+        {
+            "name": "remove_api_doc",
+            "description": "Remove API doc"
+        },
+        {
+            "name": "list_api_docs",
+            "description": "List registered API docs"
+        },
+        {
+            "name": "refresh_api_doc",
+            "description": "Reload spec from source URL"
+        },
+        {
+            "name": "search_endpoints",
+            "description": "Deep search for endpoints by keyword, tag, or method"
+        },
+        {
+            "name": "get_endpoint_info",
+            "description": "Get detailed parameter/schema info for an endpoint"
+        },
+        {
+            "name": "list_endpoints",
+            "description": "List all endpoints in a doc"
+        },
+        {
+            "name": "add_credential",
+            "description": "Add auth credentials (API Key, Bearer, OAuth, etc.)"
+        },
+        {
+            "name": "call_api",
+            "description": "Execute an authenticated API call"
+        }
+    ],
+    "capabilities": [
+        "tools"
+    ],
+    "authentication": "None (Local execution)",
+    "tags": [
+        "api",
+        "testing",
+        "openapi",
+        "swagger",
+        "developer-tools"
+    ]
+}

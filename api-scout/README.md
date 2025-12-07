@@ -2,6 +2,8 @@
 
 MCP (Model Context Protocol) server for API testing, designed for Claude Code and other AI CLI tools.
 
+[📚 **Full Documentation**](./docs/README.md)
+
 ## Features
 
 - **API Documentation Management**: Import OpenAPI/Swagger specs from URL or content

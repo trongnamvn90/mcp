@@ -10,14 +10,14 @@ The [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) is an open 
 
 | Server | Description | Status |
 |--------|-------------|--------|
-| [api-testing](./packages/api-testing) | API testing with OpenAPI docs, credentials, and authenticated calls | Ready |
+| [api-scout](./api-scout) | API testing with OpenAPI docs, credentials, and authenticated calls | Ready |
 
 ## Quick Start
 
-### api-testing
+### api-scout
 
 ```bash
-cd packages/api-testing
+cd api-scout
 npm install
 npm run build
 ```
@@ -27,9 +27,9 @@ Add to Claude Code config (`~/.claude/mcp.json`):
 ```json
 {
   "mcpServers": {
-    "api-testing": {
+    "api-scout": {
       "command": "node",
-      "args": ["/absolute/path/to/packages/api-testing/dist/index.js"]
+      "args": ["/absolute/path/to/api-scout/dist/index.js"]
     }
   }
 }
