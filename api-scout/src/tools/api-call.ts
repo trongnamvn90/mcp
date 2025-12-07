@@ -179,9 +179,21 @@ export async function callApi(
       },
     };
   } catch (error) {
+    let errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    let suggestion = undefined;
+
+    if (errorMessage.includes('fetch failed') || errorMessage.includes('ECONNREFUSED')) {
+      errorMessage = `Connection failed: ${errorMessage}`;
+      suggestion = 'Verify that the target server is running and accessible from this machine.';
+    } else if (errorMessage.includes('read ETIMEDOUT') || errorMessage.includes('timeout')) {
+      errorMessage = `Request timed out: ${errorMessage}`;
+      suggestion = 'The API took too long to respond. Check server performance.';
+    }
+
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: errorMessage,
+      suggestion,
     };
   }
 }
@@ -273,9 +285,18 @@ export async function callRawApi(
       },
     };
   } catch (error) {
+    let errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    let suggestion = undefined;
+
+    if (errorMessage.includes('fetch failed') || errorMessage.includes('ECONNREFUSED')) {
+      errorMessage = `Connection failed: ${errorMessage}`;
+      suggestion = 'Verify that the target server is running and accessible.';
+    }
+
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: errorMessage,
+      suggestion,
     };
   }
 }
