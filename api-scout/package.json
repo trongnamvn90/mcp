@@ -1,6 +1,6 @@
 {
   "name": "@trongnamvn90/api-scout",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "MCP server for API testing - manage API docs, credentials, and make API calls",
   "author": "Trong Nam",
   "main": "dist/index.js",
@@ -21,6 +21,11 @@
     "claude-code",
     "anthropic"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/trongnamvn90/mcp.git",
+    "directory": "api-scout"
+  },
   "license": "MIT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",

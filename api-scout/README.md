@@ -2,7 +2,7 @@
 
 MCP (Model Context Protocol) server for API testing, designed for Claude Code and other AI CLI tools.
 
-[📚 **Full Documentation**](./docs/README.md)
+[📚 **Full Documentation**](https://github.com/trongnamvn90/mcp/blob/main/api-scout/docs/README.md) | [💻 **GitHub Repository**](https://github.com/trongnamvn90/mcp/tree/main/api-scout)
 
 ## Features
 
