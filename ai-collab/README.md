@@ -409,6 +409,15 @@ interface ReviewResponse {
 }
 ```
 
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [docs/api.md](docs/api.md) | Complete API reference for all tools |
+| [docs/workflow.md](docs/workflow.md) | Step-by-step workflow examples |
+| [docs/architecture.md](docs/architecture.md) | Storage options, data flow, scalability |
+| [docs/web-viewer.md](docs/web-viewer.md) | Web UI for viewing conversations |
+
 ## Workflow Examples
 
 See [docs/workflow.md](docs/workflow.md) for detailed workflow examples.
