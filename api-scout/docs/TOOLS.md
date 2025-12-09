@@ -117,7 +117,7 @@ Store authentication details securely.
   "properties": {
     "id": { "type": "string" },
     "name": { "type": "string" },
-    "type": { "type": "string", "enum": ["apiKey", "bearer", "basic", "oauth2"] },
+    "type": { "type": "string", "enum": ["apiKey", "bearer", "basic", "oauth2", "custom", "customHeaders"] },
     "apiDocId": { "type": "string" },
     "apiKey": { "type": "string" },
     "token": { "type": "string" },

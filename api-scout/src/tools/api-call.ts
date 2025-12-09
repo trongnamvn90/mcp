@@ -246,7 +246,7 @@ export async function callRawApi(
       ...params.headers,
     };
 
-    // Apply credentials (supports all types including autoToken and customHeaders)
+    // Apply credentials (supports all types including Smart Bearer and customHeaders)
     if (credential) {
       await applyCredentials(headers, credential);
     }

@@ -45,6 +45,7 @@ API Scout introduces the **"Immortal Warrior"** authentication flow. The standar
 2.  **Auto-Refresh**: If an API call fails with `401`, it detects `invalidStatusCodes` and automatically calls your `refreshUrl`.
 3.  **Fallback Logic**: If refresh fails, it falls back to full login.
 4.  **Seamless Retry**: The original request is retried transparently with the new token.
+5.  **Strict Verification**: Smart Bearer credentials are tested continuously. When adding/updating, it attempts an immediate login. If it fails, the save is rejected (unless you use `skipValidityCheck: true`).
 
 Configuring this is as simple as adding `loginUrl` and `refreshUrl` to your `bearer` credential!
 

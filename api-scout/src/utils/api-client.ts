@@ -1,6 +1,6 @@
 /**
  * API Client for making HTTP requests
- * Supports autoToken with automatic login and token refresh
+ * Supports Smart Bearer with automatic login and token refresh
  */
 
 import type {
@@ -85,11 +85,11 @@ export function getValueByPath(obj: unknown, path: string): unknown {
 /**
  * Perform login request to obtain token
  */
-async function performLogin(credential: Credential): Promise<string> {
+export async function performLogin(credential: Credential): Promise<string> {
   const { config } = credential;
 
   if (!config.loginUrl) {
-    throw new Error('loginUrl is required for autoToken credential');
+    throw new Error('loginUrl is required for Smart Bearer credential');
   }
 
   const headers: Record<string, string> = {
@@ -145,6 +145,15 @@ async function performLogin(credential: Credential): Promise<string> {
   });
 
   return token;
+}
+
+/**
+ * Test login for a credential without caching (verification only)
+ * or with caching (side effect acceptable).
+ * Since performLogin caches, we effectively "warm up" the cache which is good.
+ */
+export async function testCredentialLogin(credential: Credential): Promise<void> {
+  await performLogin(credential);
 }
 
 /**
@@ -328,7 +337,7 @@ export async function applyCredentials(
 }
 
 /**
- * Make API call with optional credential and auto-retry for autoToken
+ * Make API call with optional credential and auto-retry for Smart Bearer
  */
 export async function makeApiCall(
   request: ApiCallRequest,

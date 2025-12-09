@@ -243,8 +243,7 @@ const TOOLS = [
 - basic: Username/password
 - oauth2: OAuth2 tokens
 - custom: Custom headers object
-- customHeaders: Array of 1-5 static headers (for multi-header auth)
-- autoToken: Auto-login and refresh token when expired`,
+- customHeaders: Array of 1-5 static headers (for multi-header auth)`,
     inputSchema: {
       type: 'object',
       properties: {
@@ -252,7 +251,7 @@ const TOOLS = [
         name: { type: 'string', description: 'Display name' },
         type: {
           type: 'string',
-          enum: ['apiKey', 'bearer', 'basic', 'oauth2', 'custom', 'autoToken', 'customHeaders'],
+          enum: ['apiKey', 'bearer', 'basic', 'oauth2', 'custom', 'customHeaders'],
           description: 'Authentication type',
         },
         apiDocId: { type: 'string', description: 'Associate with API doc' },
@@ -285,8 +284,7 @@ const TOOLS = [
           },
           description: 'Array of 1-5 custom headers (for customHeaders type)',
         },
-        // autoToken type
-        loginUrl: { type: 'string', description: 'Login endpoint URL (for autoToken)' },
+        // Smart Bearer login config
         loginMethod: {
           type: 'string',
           enum: ['GET', 'POST'],
@@ -353,11 +351,11 @@ const TOOLS = [
           },
           description: 'New custom headers array (for customHeaders type)',
         },
-        loginBody: { type: 'object', description: 'New login body (for autoToken)' },
+        loginBody: { type: 'object', description: 'New login body (for Smart Bearer)' },
         invalidStatusCodes: {
           type: 'array',
           items: { type: 'number' },
-          description: 'New invalid status codes (for autoToken)',
+          description: 'New invalid status codes',
         },
       },
       required: ['id'],

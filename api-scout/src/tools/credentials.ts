@@ -6,6 +6,7 @@
 import { z } from 'zod';
 import { getStorage } from '../utils/storage.js';
 import type { Credential, CredentialConfig } from '../types/index.js';
+import { testCredentialLogin } from '../utils/api-client.js';
 
 // Custom header schema (for customHeaders type)
 const customHeaderSchema = z.object({
@@ -61,7 +62,7 @@ export const addCredentialSchema = z.object({
     .optional()
     .describe('Array of 1-5 custom headers (for customHeaders type)'),
 
-  // Smart Bearer / AutoToken config
+  // Smart Bearer config
   refreshUrl: z
     .string()
     .url()
@@ -77,12 +78,12 @@ export const addCredentialSchema = z.object({
     .optional()
     .describe('JSON path to extract refresh token'),
 
-  // autoToken config
+  // Smart Bearer config
   loginUrl: z
     .string()
     .url()
     .optional()
-    .describe('Login endpoint URL (for autoToken type)'),
+    .describe('Login endpoint URL (for Smart Bearer)'),
   loginMethod: z
     .enum(['GET', 'POST'])
     .optional()
@@ -126,6 +127,13 @@ export const addCredentialSchema = z.object({
     .optional()
     .default('GET')
     .describe('HTTP method for validity check (default: GET)'),
+  skipValidityCheck: z
+    .boolean()
+    .optional()
+    .default(false)
+    .describe(
+      'Skip verification of credential login (for Smart Bearer)'
+    ),
 });
 
 export const updateCredentialSchema = z.object({
@@ -147,7 +155,7 @@ export const updateCredentialSchema = z.object({
   loginBody: z
     .record(z.unknown())
     .optional()
-    .describe('New login body (for autoToken)'),
+    .describe('New login body (for Smart Bearer)'),
   invalidStatusCodes: z
     .array(z.number())
     .optional()
@@ -158,6 +166,7 @@ export const updateCredentialSchema = z.object({
   loginUrl: z.string().optional(),
   loginMethod: z.enum(['GET', 'POST']).optional(),
   tokenPath: z.string().optional(),
+  skipValidityCheck: z.boolean().optional().describe('Skip verification of credential login'),
 });
 
 export const removeCredentialSchema = z.object({
@@ -317,6 +326,19 @@ export async function addCredential(
       updatedAt: new Date().toISOString(),
     };
 
+    // Verify credential if it is a Smart Bearer (has loginUrl) and not skipped
+    if (config.loginUrl && !params.skipValidityCheck) {
+      try {
+        await testCredentialLogin(credential);
+      } catch (error) {
+        return {
+          success: false,
+          error: `Credential verification failed: ${error instanceof Error ? error.message : String(error)
+            }. Use skipValidityCheck=true to force save.`,
+        };
+      }
+    }
+
     const saved = await storage.addCredential(credential);
 
     return {
@@ -392,6 +414,39 @@ export async function updateCredential(
 
     if (params.name !== undefined) {
       updates.name = params.name;
+    }
+
+    // Verify credential if it is a Smart Bearer (has loginUrl) and not skipped
+    // We construct a temporary full credential object to test
+    if (newConfig.loginUrl && !params.skipValidityCheck) {
+      if (
+        updates.config?.loginUrl ||
+        updates.config?.loginMethod ||
+        updates.config?.loginBody ||
+        updates.config?.loginHeaders ||
+        updates.config?.refreshUrl
+      ) {
+        // Only verify if we are changing login-related configs or validty settings
+        // But actually, we should verify regardless if we are about to save it and it claims to be smart.
+        // Or should we only verify if params touched it?
+        // Let's verify if `skipValidityCheck` is false (default).
+        // Construct temporary object
+        const tempCredential: Credential = {
+          ...existing,
+          ...updates,
+          config: newConfig,
+        };
+
+        try {
+          await testCredentialLogin(tempCredential);
+        } catch (error) {
+          return {
+            success: false,
+            error: `Credential verification failed: ${error instanceof Error ? error.message : String(error)
+              }. Use skipValidityCheck=true to force save.`,
+          };
+        }
+      }
     }
 
     const updated = await storage.updateCredential(params.id, updates);

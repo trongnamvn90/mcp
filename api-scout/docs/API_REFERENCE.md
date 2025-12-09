@@ -25,7 +25,7 @@ Stores authentication configuration.
 interface Credential {
   id: string;
   name: string;
-  type: 'apiKey' | 'bearer' | 'basic' | 'oauth2' | 'autoToken';
+  type: 'apiKey' | 'bearer' | 'basic' | 'oauth2' | 'custom' | 'customHeaders';
   apiDocId?: string;   // Associated API Doc
   config: {
     // Type-specific fields
