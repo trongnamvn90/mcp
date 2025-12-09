@@ -1,6 +1,6 @@
 {
   "name": "@trongnamvn90/api-scout",
-  "version": "1.0.5",
+  "version": "1.1.0",
   "description": "MCP server for API testing - manage API docs, credentials, and make API calls",
   "author": "Trong Nam",
   "main": "dist/index.js",

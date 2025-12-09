@@ -18,7 +18,7 @@ export const addCredentialSchema = z.object({
   id: z.string().describe('Unique identifier for the credential'),
   name: z.string().describe('Display name for the credential'),
   type: z
-    .enum(['apiKey', 'bearer', 'basic', 'oauth2', 'custom', 'autoToken', 'customHeaders'])
+    .enum(['apiKey', 'bearer', 'basic', 'oauth2', 'custom', 'customHeaders'])
     .describe('Authentication type'),
   apiDocId: z
     .string()
@@ -60,6 +60,22 @@ export const addCredentialSchema = z.object({
     .max(5)
     .optional()
     .describe('Array of 1-5 custom headers (for customHeaders type)'),
+
+  // Smart Bearer / AutoToken config
+  refreshUrl: z
+    .string()
+    .url()
+    .optional()
+    .describe('Refresh endpoint URL'),
+  refreshMethod: z
+    .enum(['GET', 'POST'])
+    .optional()
+    .default('POST')
+    .describe('HTTP method for refresh (default: POST)'),
+  refreshTokenPath: z
+    .string()
+    .optional()
+    .describe('JSON path to extract refresh token'),
 
   // autoToken config
   loginUrl: z
@@ -136,6 +152,12 @@ export const updateCredentialSchema = z.object({
     .array(z.number())
     .optional()
     .describe('New invalid status codes'),
+  refreshUrl: z.string().optional(),
+  refreshMethod: z.enum(['GET', 'POST']).optional(),
+  refreshTokenPath: z.string().optional(),
+  loginUrl: z.string().optional(),
+  loginMethod: z.enum(['GET', 'POST']).optional(),
+  tokenPath: z.string().optional(),
 });
 
 export const removeCredentialSchema = z.object({
@@ -189,13 +211,45 @@ export async function addCredential(
         break;
 
       case 'bearer':
-        if (!params.token) {
+        // Allow starting with either token OR login capability
+        if (!params.token && !params.loginUrl) {
           return {
             success: false,
-            error: 'token is required for bearer type',
+            error: 'Either token or loginUrl is required for bearer type',
           };
         }
-        config.token = params.token;
+
+        if (params.token) config.token = params.token;
+
+        // Copy smart bearer config
+        if (params.loginUrl) {
+          if (!params.loginBody) {
+            return { success: false, error: 'loginBody is required when loginUrl is provided' };
+          }
+          config.loginUrl = params.loginUrl;
+          config.loginMethod = params.loginMethod || 'POST';
+          config.loginBody = params.loginBody;
+          config.loginHeaders = params.loginHeaders;
+          config.tokenPath = params.tokenPath || 'token';
+          config.tokenHeader = params.tokenHeader || 'Authorization';
+          config.tokenPrefix = params.tokenPrefix ?? 'Bearer ';
+          config.invalidStatusCodes = params.invalidStatusCodes || [401, 403];
+
+          if (params.validityCheckUrl) {
+            config.validityCheckUrl = params.validityCheckUrl;
+            config.validityCheckMethod = params.validityCheckMethod || 'GET';
+          }
+        }
+
+        if (params.refreshUrl) {
+          config.refreshUrl = params.refreshUrl;
+          config.refreshMethod = params.refreshMethod || 'POST';
+          config.refreshTokenPath = params.refreshTokenPath;
+          // Ensure invalidStatusCodes is set if not already
+          if (!config.invalidStatusCodes) {
+            config.invalidStatusCodes = params.invalidStatusCodes || [401, 403];
+          }
+        }
         break;
 
       case 'basic':
@@ -250,32 +304,7 @@ export async function addCredential(
         config.customHeaders = params.customHeaders;
         break;
 
-      case 'autoToken':
-        if (!params.loginUrl) {
-          return {
-            success: false,
-            error: 'loginUrl is required for autoToken type',
-          };
-        }
-        if (!params.loginBody) {
-          return {
-            success: false,
-            error: 'loginBody is required for autoToken type (e.g., { "username": "xxx", "password": "yyy" })',
-          };
-        }
-        config.loginUrl = params.loginUrl;
-        config.loginMethod = params.loginMethod || 'POST';
-        config.loginBody = params.loginBody;
-        config.loginHeaders = params.loginHeaders;
-        config.tokenPath = params.tokenPath || 'token';
-        config.tokenHeader = params.tokenHeader || 'Authorization';
-        config.tokenPrefix = params.tokenPrefix ?? 'Bearer ';
-        config.invalidStatusCodes = params.invalidStatusCodes || [401, 403];
-        if (params.validityCheckUrl) {
-          config.validityCheckUrl = params.validityCheckUrl;
-          config.validityCheckMethod = params.validityCheckMethod || 'GET';
-        }
-        break;
+
     }
 
     const credential: Credential = {
@@ -350,6 +379,12 @@ export async function updateCredential(
     if (params.loginBody !== undefined) newConfig.loginBody = params.loginBody;
     if (params.invalidStatusCodes !== undefined)
       newConfig.invalidStatusCodes = params.invalidStatusCodes;
+    if (params.refreshUrl !== undefined) newConfig.refreshUrl = params.refreshUrl;
+    if (params.refreshMethod !== undefined) newConfig.refreshMethod = params.refreshMethod;
+    if (params.refreshTokenPath !== undefined) newConfig.refreshTokenPath = params.refreshTokenPath;
+    if (params.loginUrl !== undefined) newConfig.loginUrl = params.loginUrl;
+    if (params.loginMethod !== undefined) newConfig.loginMethod = params.loginMethod;
+    if (params.tokenPath !== undefined) newConfig.tokenPath = params.tokenPath;
 
     const updates: Partial<Credential> = {
       config: newConfig,

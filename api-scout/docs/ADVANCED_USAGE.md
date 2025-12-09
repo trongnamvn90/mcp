@@ -2,22 +2,22 @@
 
 ## 1. Handling Complex Authentication
 
-### Multi-Step Authentication (Auto-Token)
+### Smart Bearer Authentication (Auto-Login & Refresh)
 
-Some APIs require you to POST credentials to a login endpoint to get a token, which then expires after a certain time. API Scout can handle this automatically.
+Some APIs require you to POST credentials to a login endpoint to get a token, which then expires after a certain time. The `bearer` credential type covers this automatically.
 
-**Scenario:** You have a login endpoint `POST /auth/login` that returns `{ "accessToken": "xyz..." }`.
+**Scenario:** You have a login endpoint `POST /auth/login` and a refresh endpoint `POST /auth/refresh`.
 
 **Credential Configuration:**
 
 ```json
 {
   "id": "my-app-auth",
-  "name": "My App Auto-Auth",
-  "type": "autoToken",
+  "name": "My App Smart Auth",
+  "type": "bearer", // Use 'bearer' type
   "apiDocId": "my-app",
   
-  // 1. Where to login?
+  // 1. Where to login? (Auto-Login)
   "loginUrl": "https://api.myapp.com/auth/login",
   "loginMethod": "POST",
   "loginBody": {
@@ -25,15 +25,20 @@ Some APIs require you to POST credentials to a login endpoint to get a token, wh
     "password": "secret_password"
   },
   
-  // 2. How to extract the token?
+  // 2. Where to Refresh? (Auto-Refresh)
+  "refreshUrl": "https://api.myapp.com/auth/refresh",
+  "refreshMethod": "POST",
+  "refreshTokenPath": "refreshToken",
+  
+  // 3. How to extract the token?
   "tokenPath": "accessToken", // If response is { accessToken: "..." }
   
-  // 3. How to use the token?
+  // 4. How to use the token?
   "tokenHeader": "Authorization",
   "tokenPrefix": "Bearer ",
   
-  // 4. When to refresh?
-  "invalidStatusCodes": [401] // If API returns 401, API Scout will re-login automatically!
+  // 5. When to retry?
+  "invalidStatusCodes": [401] // If API returns 401, API Scout will Refresh -> Retry -> Login -> Retry!
 }
 ```
 

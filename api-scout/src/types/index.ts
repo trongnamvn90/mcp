@@ -94,7 +94,7 @@ export interface Credential {
   id: string;
   name: string;
   apiDocId?: string;
-  type: 'apiKey' | 'bearer' | 'basic' | 'oauth2' | 'custom' | 'autoToken' | 'customHeaders';
+  type: 'apiKey' | 'bearer' | 'basic' | 'oauth2' | 'custom' | 'customHeaders';
   config: CredentialConfig;
   createdAt: string;
   updatedAt: string;
@@ -126,7 +126,7 @@ export interface CredentialConfig {
   // For customHeaders type (1-5 static headers)
   customHeaders?: Array<{ name: string; value: string }>;
 
-  // For autoToken type
+  // Smart Bearer / dynamic config
   loginUrl?: string;
   loginMethod?: 'GET' | 'POST'; // Only GET/POST are conventional for auth
   loginBody?: Record<string, unknown>;
@@ -137,12 +137,16 @@ export interface CredentialConfig {
   invalidStatusCodes?: number[]; // Status codes that indicate invalid token, e.g., [401, 403]
   validityCheckUrl?: string; // Optional: URL to check token validity
   validityCheckMethod?: 'GET' | 'POST';
+  refreshUrl?: string; // URL to refresh token
+  refreshMethod?: 'GET' | 'POST';
+  refreshTokenPath?: string; // JSON path to extract refresh token, default "refreshToken"
 }
 
-// Token cache for autoToken credentials
+// Token cache for dynamic credentials
 export interface TokenCache {
   credentialId: string;
   token: string;
+  refreshToken?: string;
   obtainedAt: number; // timestamp
 }
 

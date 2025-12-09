@@ -117,14 +117,19 @@ Store authentication details securely.
   "properties": {
     "id": { "type": "string" },
     "name": { "type": "string" },
-    "type": { "type": "string", "enum": ["apiKey", "bearer", "basic", "oauth2", "autoToken"] },
+    "type": { "type": "string", "enum": ["apiKey", "bearer", "basic", "oauth2"] },
     "apiDocId": { "type": "string" },
     "apiKey": { "type": "string" },
     "token": { "type": "string" },
     "username": { "type": "string" },
     "password": { "type": "string" },
-    "loginUrl": { "type": "string" },
-    "loginBody": { "type": "object" }
+    
+    // Smart Bearer Options
+    "loginUrl": { "type": "string", "description": "Auto-login URL" },
+    "loginBody": { "type": "object", "description": "Auto-login credential body" },
+    "refreshUrl": { "type": "string", "description": "Auto-refresh URL" },
+    "tokenPath": { "type": "string", "default": "token" },
+    "refreshTokenPath": { "type": "string", "default": "refreshToken" }
     // ... extensive auth options
   },
   "required": ["id", "name", "type"]

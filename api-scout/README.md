@@ -37,6 +37,17 @@ Add to `claude_desktop_config.json`:
 }
 ```
 
+## Smart Bearer Authentication (New! 🛡️)
+
+API Scout introduces the **"Immortal Warrior"** authentication flow. The standard `bearer` credential now supports advanced auto-recovery logic:
+
+1.  **Auto-Login**: If a token is missing, it automatically calls your `loginUrl` to get one.
+2.  **Auto-Refresh**: If an API call fails with `401`, it detects `invalidStatusCodes` and automatically calls your `refreshUrl`.
+3.  **Fallback Logic**: If refresh fails, it falls back to full login.
+4.  **Seamless Retry**: The original request is retried transparently with the new token.
+
+Configuring this is as simple as adding `loginUrl` and `refreshUrl` to your `bearer` credential!
+
 ## Smart Caching (New! 🚀)
 
 API Scout now supports **Smart Caching** for OpenAPI docs. When your API changes, API Scout can automatically detect and refresh the documentation without manual intervention.
@@ -102,7 +113,7 @@ app.getHttpAdapter().get('/api/docs-hash', (req, res) => {
 ## Credential Types
 
 - `apiKey`: API key in header
-- `bearer`: Bearer token
+- `bearer`: Bearer token (supports Smart Auto-Login & Refresh)
 - `basic`: Username/password
 - `oauth2`: OAuth2 tokens
 - `custom`: Custom headers

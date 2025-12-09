@@ -2,7 +2,7 @@
  * Storage utility for persisting API docs and credentials
  */
 
-import { readFile, writeFile, mkdir } from 'fs/promises';
+import { readFile, writeFile, mkdir, stat } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
@@ -14,6 +14,7 @@ const STORAGE_FILE = 'data.json';
 export class Storage {
   private storagePath: string;
   private data: StorageData;
+  private lastMtime: number = 0;
 
   constructor(storageDir?: string) {
     const dir = storageDir || DEFAULT_STORAGE_DIR;
@@ -29,8 +30,14 @@ export class Storage {
 
     if (existsSync(this.storagePath)) {
       try {
-        const content = await readFile(this.storagePath, 'utf-8');
-        this.data = JSON.parse(content);
+        // Check if file has changed
+        const fileStat = await stat(this.storagePath);
+
+        if (fileStat.mtimeMs > this.lastMtime) {
+          const content = await readFile(this.storagePath, 'utf-8');
+          this.data = JSON.parse(content);
+          this.lastMtime = fileStat.mtimeMs;
+        }
       } catch (error) {
         // Log full error with stack trace for debugging
         console.error(`[Storage] Failed to load data from ${this.storagePath}:`);
@@ -42,8 +49,14 @@ export class Storage {
         } else {
           console.error('[Storage] Error:', error);
         }
-        console.error('[Storage] Starting with empty data');
-        this.data = { apiDocs: [], credentials: [] };
+
+        // Only verify empty data if we really failed to parse and had no data before?
+        // Actually if parse fails, we might want to keep old data or init empty.
+        // Current logic: on error, empty data.
+        if (this.lastMtime === 0) {
+          console.error('[Storage] Starting with empty data');
+          this.data = { apiDocs: [], credentials: [] };
+        }
       }
     }
   }
@@ -54,6 +67,14 @@ export class Storage {
 
   private async save(): Promise<void> {
     await writeFile(this.storagePath, JSON.stringify(this.data, null, 2));
+
+    // Update mtime to prevent unnecessary reload
+    try {
+      const fileStat = await stat(this.storagePath);
+      this.lastMtime = fileStat.mtimeMs;
+    } catch {
+      // Ignore if stat fails after write
+    }
   }
 
   // API Docs methods
@@ -300,7 +321,6 @@ export async function getStorage(storageDir?: string): Promise<Storage> {
   if (!storageInstance) {
     initializedStorageDir = storageDir;
     storageInstance = new Storage(storageDir);
-    await storageInstance.init();
   } else if (storageDir !== undefined && storageDir !== initializedStorageDir) {
     // Warn if trying to use different storage dir after initialization
     console.warn(
@@ -309,6 +329,10 @@ export async function getStorage(storageDir?: string): Promise<Storage> {
       `Storage is a singleton - restart the server to use a different path.`
     );
   }
+
+  // Always reload from disk to ensure synchronization
+  await storageInstance.init();
+
   return storageInstance;
 }
 

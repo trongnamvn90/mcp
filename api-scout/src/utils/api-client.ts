@@ -127,10 +127,74 @@ async function performLogin(credential: Credential): Promise<string> {
     );
   }
 
+  // Extract refresh token if path provided
+  let refreshToken: string | undefined;
+  if (config.refreshTokenPath) {
+    const rt = getValueByPath(responseBody, config.refreshTokenPath);
+    if (typeof rt === 'string') {
+      refreshToken = rt;
+    }
+  }
+
   // Cache the token
   tokenCache.set(credential.id, {
     credentialId: credential.id,
     token,
+    refreshToken,
+    obtainedAt: Date.now(),
+  });
+
+  return token;
+}
+
+/**
+ * Perform token refresh
+ */
+async function performRefresh(
+  credential: Credential,
+  refreshToken: string
+): Promise<string> {
+  const { config } = credential;
+
+  if (!config.refreshUrl) {
+    throw new Error('refreshUrl is required for token refresh');
+  }
+
+  const response = await fetch(config.refreshUrl, {
+    method: config.refreshMethod || 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    },
+    body: JSON.stringify({ refreshToken }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Refresh failed: ${response.status}`);
+  }
+
+  const responseBody = await response.json();
+  const tokenPath = config.tokenPath || 'token';
+  const token = getValueByPath(responseBody, tokenPath);
+
+  if (!token || typeof token !== 'string') {
+    throw new Error('Failed to extract token from refresh response');
+  }
+
+  // Extract new refresh token if rotated
+  let newRefreshToken = refreshToken;
+  if (config.refreshTokenPath) {
+    const rt = getValueByPath(responseBody, config.refreshTokenPath);
+    if (typeof rt === 'string') {
+      newRefreshToken = rt;
+    }
+  }
+
+  // Update cache
+  tokenCache.set(credential.id, {
+    credentialId: credential.id,
+    token,
+    refreshToken: newRefreshToken,
     obtainedAt: Date.now(),
   });
 
@@ -173,11 +237,11 @@ async function checkTokenValidity(
 }
 
 /**
- * Get valid token for autoToken credential
+ * Get valid token for smart credentials (bearer with auto-login)
  * - Returns cached token if valid
  * - Performs login if no token or token invalid
  */
-async function getAutoToken(credential: Credential): Promise<string> {
+async function getSmartToken(credential: Credential): Promise<string> {
   const cached = tokenCache.get(credential.id);
 
   if (cached?.token) {
@@ -210,11 +274,25 @@ export async function applyCredentials(
       }
       break;
 
-    case 'bearer':
-      if (config.token) {
-        headers['Authorization'] = `Bearer ${config.token}`;
+    case 'bearer': {
+      let token: string | undefined;
+
+      // If we have loginUrl, treat as smart bearer
+      if (config.loginUrl) {
+        token = await getSmartToken(credential);
+      } else {
+        // Standard bearer with optional cache lookups for manual updates
+        const cached = tokenCache.get(credential.id);
+        token = cached?.token || config.token;
+      }
+
+      if (token) {
+        const tokenHeader = config.tokenHeader || 'Authorization';
+        const tokenPrefix = config.tokenPrefix ?? 'Bearer ';
+        headers[tokenHeader] = `${tokenPrefix}${token}`;
       }
       break;
+    }
 
     case 'basic':
       if (config.username && config.password) {
@@ -245,13 +323,7 @@ export async function applyCredentials(
       }
       break;
 
-    case 'autoToken': {
-      const token = await getAutoToken(credential);
-      const tokenHeader = config.tokenHeader || 'Authorization';
-      const tokenPrefix = config.tokenPrefix ?? 'Bearer ';
-      headers[tokenHeader] = `${tokenPrefix}${token}`;
-      break;
-    }
+
   }
 }
 
@@ -281,18 +353,50 @@ export async function makeApiCall(
     await applyCredentials(requestHeaders, credential);
   }
 
-  // Make the request
-  const response = await executeRequest(url, method, requestHeaders, body);
+  // Make the request with smart retry
+  return executeRequestWithAuthRetry(url, method, requestHeaders, body, credential);
+}
 
-  // Handle autoToken retry on invalid status
+/**
+ * Execute request with automatic authentication retry (refresh/login)
+ */
+export async function executeRequestWithAuthRetry(
+  url: string,
+  method: string,
+  headers: Record<string, string>,
+  body: unknown,
+  credential?: Credential
+): Promise<ApiCallResponse> {
+  const response = await executeRequest(url, method, headers, body);
+
+  // Handle auto-retry (Smart Bearer)
+  const isSmartBearer = credential?.type === 'bearer' && (credential.config.refreshUrl || credential.config.loginUrl);
+  const invalidCodes = credential?.config.invalidStatusCodes || [401, 403];
+
   if (
-    credential?.type === 'autoToken' &&
-    credential.config.invalidStatusCodes?.includes(response.status)
+    isSmartBearer &&
+    invalidCodes.includes(response.status)
   ) {
-    // Clear cached token and retry once
-    clearCachedToken(credential.id);
+    // Check if we have a refresh token and URL to try refreshing first
+    const cached = tokenCache.get(credential.id);
+    let refreshed = false;
 
-    // Re-apply credentials (will trigger new login)
+    if (cached?.refreshToken && credential.config.refreshUrl) {
+      try {
+        await performRefresh(credential, cached.refreshToken);
+        refreshed = true;
+      } catch (error) {
+        // Refresh failed, proceed to full login
+        console.warn(`Token refresh failed for ${credential.name}:`, error);
+      }
+    }
+
+    if (!refreshed) {
+      // Clear cached token and force login
+      clearCachedToken(credential.id);
+    }
+
+    // Re-apply credentials (will use cached refreshed token OR trigger new login)
     const retryHeaders: Record<string, string> = {
       'Content-Type': 'application/json',
       Accept: 'application/json',

@@ -9,7 +9,7 @@ import {
   validateUrlAgainstWhitelist,
   clearCachedToken,
   applyCredentials,
-  executeRequest,
+  executeRequestWithAuthRetry,
 } from '../utils/api-client.js';
 import { getEndpointInfo } from '../utils/openapi-parser.js';
 
@@ -251,28 +251,8 @@ export async function callRawApi(
       await applyCredentials(headers, credential);
     }
 
-    // Make request with retry for autoToken
-    let response = await executeRequest(params.url, params.method, headers, params.body);
-
-    // Handle autoToken retry on invalid status
-    if (
-      credential?.type === 'autoToken' &&
-      credential.config.invalidStatusCodes?.includes(response.status)
-    ) {
-      // Clear cached token and retry once
-      clearCachedToken(credential.id);
-
-      // Re-apply credentials (will trigger new login)
-      const retryHeaders: Record<string, string> = {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-        ...params.headers,
-      };
-      await applyCredentials(retryHeaders, credential);
-
-      // Retry request
-      response = await executeRequest(params.url, params.method, retryHeaders, params.body);
-    }
+    // Make request with retry for Smart Bearer
+    const response = await executeRequestWithAuthRetry(params.url, params.method, headers, params.body, credential);
 
     return {
       success: true,
